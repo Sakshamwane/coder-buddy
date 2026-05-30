@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from langchain.globals import set_verbose, set_debug
+from langchain_core.globals import set_verbose, set_debug
 from langchain_groq.chat_models import ChatGroq
 from langgraph.constants import END
 from langgraph.graph import StateGraph

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coder Buddy — AI Multi-Agent Code Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #07090f;
+      --surface:   #0d1220;
+      --surface2:  #111827;
+      --border:    #1e2d40;
+      --border2:   #243447;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --cyan:      #00d4ff;
+      --cyan-dim:  rgba(0,212,255,.12);
+      --green:     #22c55e;
+      --green-dim: rgba(34,197,94,.12);
+      --yellow:    #eab308;
+      --yellow-dim:rgba(234,179,8,.12);
+      --red:       #ef4444;
+      --purple:    #a855f7;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 80px;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    header {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 40px 0 36px;
+    }
+
+    .logo {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #00d4ff 0%, #a855f7 100%);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .brand h1 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; }
+    .brand p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Card wrapper ────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 860px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    /* ── Input section ───────────────────────────── */
+    #prompt {
+      width: 100%;
+      min-height: 120px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: vertical;
+      transition: border-color .2s;
+      outline: none;
+    }
+    #prompt:focus { border-color: var(--cyan); }
+    #prompt::placeholder { color: var(--muted); }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .chip:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+    .actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+    #generate-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #00d4ff, #a855f7);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+    }
+    #generate-btn:hover { opacity: .9; transform: translateY(-1px); }
+    #generate-btn:active { transform: translateY(0); }
+    #generate-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .btn-icon { font-size: 16px; }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Pipeline ────────────────────────────────── */
+    #pipeline-card { display: none; }
+
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 18px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      transition: all .3s;
+      position: relative;
+    }
+    .stage.active {
+      border-color: var(--cyan);
+      background: var(--cyan-dim);
+      box-shadow: 0 0 24px rgba(0,212,255,.1);
+      animation: pulse-border 2s ease-in-out infinite;
+    }
+    .stage.done {
+      border-color: var(--green);
+      background: var(--green-dim);
+    }
+    @keyframes pulse-border {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,212,255,.2); }
+      50%      { box-shadow: 0 0 20px 4px rgba(0,212,255,.1); }
+    }
+
+    .stage-icon { font-size: 28px; }
+
+    .stage-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: color .3s;
+    }
+    .stage.active .stage-name { color: var(--cyan); }
+    .stage.done  .stage-name { color: var(--green); }
+
+    .stage-status {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .stage.active .stage-status { color: var(--cyan); }
+    .stage.done  .stage-status { color: var(--green); }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .stage.active .dot { animation: blink 1s ease-in-out infinite; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+    .arrow {
+      flex: 0 0 40px;
+      text-align: center;
+      font-size: 18px;
+      color: var(--border2);
+    }
+
+    /* ── Log ─────────────────────────────────────── */
+    #log-card { display: none; }
+
+    #log {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      background: #050810;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .log-line {
+      animation: log-in .18s ease-out;
+      display: flex;
+      gap: 8px;
+    }
+    @keyframes log-in {
+      from { opacity: 0; transform: translateY(3px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      height: fit-content;
+      margin-top: 2px;
+    }
+    .badge-planner  { background: var(--cyan-dim);   color: var(--cyan);   }
+    .badge-architect{ background: var(--yellow-dim);  color: var(--yellow); }
+    .badge-coder    { background: var(--green-dim);   color: var(--green);  }
+    .badge-done     { background: var(--green-dim);   color: var(--green);  }
+    .badge-error    { background: rgba(239,68,68,.12); color: var(--red);   }
+    .badge-system   { background: rgba(168,85,247,.12); color: var(--purple); }
+
+    .log-text { color: var(--text); word-break: break-all; }
+    .log-text.dim { color: var(--muted); }
+
+    /* ── Files ───────────────────────────────────── */
+    #files-card { display: none; }
+
+    .files-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .files-count {
+      font-size: 14px;
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    #download-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--green-dim);
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 16px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all .15s;
+    }
+    #download-btn:hover { background: rgba(34,197,94,.2); }
+
+    .file-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .file-tab {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .file-tab:hover { border-color: var(--cyan); color: var(--cyan); }
+    .file-tab.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+    .file-ext {
+      font-size: 10px;
+      opacity: .7;
+    }
+
+    #code-viewer {
+      background: #050810;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .code-filename {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--cyan);
+    }
+
+    #code-content {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: #abb2bf;
+      padding: 16px;
+      max-height: 420px;
+      overflow: auto;
+      white-space: pre;
+      tab-size: 2;
+    }
+
+    /* ── Misc ────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡</div>
+  <div class="brand">
+    <h1>Coder Buddy</h1>
+    <p>Multi-agent AI development team — Planner → Architect → Coder</p>
+  </div>
+</header>
+
+<!-- Input -->
+<div class="card">
+  <div class="card-title">Describe your project</div>
+  <textarea id="prompt" placeholder="e.g. Create a to-do list app with HTML, CSS and JavaScript"></textarea>
+  <div class="examples">
+    <button class="chip" data-prompt="Create a to-do list app using HTML, CSS and JavaScript">📝 Todo App</button>
+    <button class="chip" data-prompt="Create a simple calculator web app using HTML, CSS and JavaScript">🧮 Calculator</button>
+    <button class="chip" data-prompt="Create a blog REST API in FastAPI with SQLite">📡 Blog API</button>
+    <button class="chip" data-prompt="Create a weather dashboard app using HTML, CSS and JavaScript with mock data">🌤 Weather Dashboard</button>
+  </div>
+  <div class="actions">
+    <button id="generate-btn">
+      <span class="btn-icon">▶</span>
+      <span id="btn-label">Generate</span>
+      <span class="spinner" id="spinner"></span>
+    </button>
+  </div>
+</div>
+
+<!-- Pipeline -->
+<div class="card" id="pipeline-card">
+  <div class="card-title">Agent Pipeline</div>
+  <div class="pipeline">
+    <div class="stage" id="stage-planner">
+      <div class="stage-icon">🧠</div>
+      <div class="stage-name">Planner</div>
+      <div class="stage-status"><span class="dot"></span><span class="stage-label">Waiting</span></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage" id="stage-architect">
+      <div class="stage-icon">📐</div>
+      <div class="stage-name">Architect</div>
+      <div class="stage-status"><span class="dot"></span><span class="stage-label">Waiting</span></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage" id="stage-coder">
+      <div class="stage-icon">💻</div>
+      <div class="stage-name">Coder</div>
+      <div class="stage-status"><span class="dot"></span><span class="stage-label">Waiting</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Live Log -->
+<div class="card" id="log-card">
+  <div class="card-title">Live Agent Log</div>
+  <div id="log"></div>
+</div>
+
+<!-- Generated Files -->
+<div class="card" id="files-card">
+  <div class="files-header">
+    <div class="files-count" id="files-count">✓ Generation complete</div>
+    <a id="download-btn" href="#" download>⬇ Download ZIP</a>
+  </div>
+  <div class="file-tabs" id="file-tabs"></div>
+  <div id="code-viewer">
+    <div class="code-header">
+      <span class="code-filename" id="code-filename">Select a file to preview</span>
+    </div>
+    <pre id="code-content">Click a file tab above to view its contents.</pre>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // ── Helpers ──────────────────────────────────────────────
+  function setStage(id, state, label) {
+    const el = $(id);
+    el.className = 'stage ' + state;
+    el.querySelector('.stage-label').textContent = label;
+  }
+
+  function log(badge, cls, text, dim = false) {
+    const box = $('log');
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `<span class="log-badge ${cls}">${badge}</span>` +
+                     `<span class="log-text${dim ? ' dim' : ''}">${text}</span>`;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function show(id) { $(id).style.display = ''; }
+
+  // ── Example chips ────────────────────────────────────────
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => { $('prompt').value = c.dataset.prompt; });
+  });
+
+  // ── SSE event handlers ───────────────────────────────────
+  let sessionId = null;
+
+  function handleEvent(ev) {
+    switch (ev.type) {
+      case 'start':
+        sessionId = ev.session_id;
+        show('pipeline-card');
+        show('log-card');
+        setStage('stage-planner', 'active', 'Running…');
+        log('SYSTEM', 'badge-system', 'Generation started');
+        break;
+
+      case 'planner_done':
+        setStage('stage-planner', 'done', 'Done ✓');
+        setStage('stage-architect', 'active', 'Running…');
+        log('PLANNER', 'badge-planner', `Project: "${ev.name}" — ${ev.tech}`);
+        log('PLANNER', 'badge-planner', ev.desc, true);
+        log('PLANNER', 'badge-planner', `Files planned: ${ev.files.join(', ')}`, true);
+        break;
+
+      case 'architect_done':
+        setStage('stage-architect', 'done', 'Done ✓');
+        setStage('stage-coder', 'active', `0 / ${ev.tasks.length} files`);
+        log('ARCHITECT', 'badge-architect', `${ev.tasks.length} implementation task${ev.tasks.length !== 1 ? 's' : ''} created`);
+        ev.tasks.forEach(t => log('ARCHITECT', 'badge-architect', `↳ ${t}`, true));
+        break;
+
+      case 'file_done':
+        setStage('stage-coder', 'active', `${ev.step} / ${ev.total} files`);
+        log('CODER', 'badge-coder', `✓ Wrote ${ev.file}  (${ev.step}/${ev.total})`);
+        break;
+
+      case 'done': {
+        setStage('stage-coder', 'done', 'Done ✓');
+        log('DONE', 'badge-done', `✓ ${ev.files.length} file${ev.files.length !== 1 ? 's' : ''} generated successfully`);
+        renderFiles(ev.files, ev.session_id);
+        resetBtn();
+        break;
+      }
+
+      case 'error':
+        log('ERROR', 'badge-error', ev.message);
+        setStage('stage-planner', '', 'Error');
+        setStage('stage-architect', '', 'Error');
+        setStage('stage-coder', '', 'Error');
+        resetBtn();
+        break;
+    }
+  }
+
+  // ── File viewer ──────────────────────────────────────────
+  function ext(name) {
+    const parts = name.split('.');
+    return parts.length > 1 ? parts.pop() : '';
+  }
+
+  function extIcon(e) {
+    return { html: '🌐', css: '🎨', js: '⚡', ts: '⚡', py: '🐍', json: '📋', md: '📝' }[e] || '📄';
+  }
+
+  function renderFiles(files, sid) {
+    show('files-card');
+    $('files-count').textContent = `✓ ${files.length} file${files.length !== 1 ? 's' : ''} generated`;
+    $('download-btn').href = `/download/${sid}`;
+
+    const tabs = $('file-tabs');
+    tabs.innerHTML = '';
+    files.forEach((f, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'file-tab' + (i === 0 ? ' active' : '');
+      const e = ext(f);
+      btn.innerHTML = `${extIcon(e)} ${f} <span class="file-ext">${e}</span>`;
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.file-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        loadFile(f, sid);
+      });
+      tabs.appendChild(btn);
+    });
+
+    if (files.length > 0) loadFile(files[0], sid);
+  }
+
+  async function loadFile(path, sid) {
+    $('code-filename').textContent = path;
+    $('code-content').textContent = 'Loading…';
+    try {
+      const r = await fetch(`/content/${sid}/${path}`);
+      $('code-content').textContent = await r.text();
+    } catch {
+      $('code-content').textContent = 'Could not load file.';
+    }
+  }
+
+  // ── Generate ─────────────────────────────────────────────
+  function resetBtn() {
+    const btn = $('generate-btn');
+    btn.disabled = false;
+    $('btn-label').textContent = 'Generate';
+    $('spinner').style.display = 'none';
+    $('generate-btn').querySelector('.btn-icon').style.display = '';
+  }
+
+  $('generate-btn').addEventListener('click', async () => {
+    const prompt = $('prompt').value.trim();
+    if (!prompt) { $('prompt').focus(); return; }
+
+    // Reset UI
+    $('log').innerHTML = '';
+    $('file-tabs').innerHTML = '';
+    $('code-content').textContent = '';
+    $('files-card').style.display = 'none';
+    ['stage-planner','stage-architect','stage-coder'].forEach(id => setStage(id, '', 'Waiting'));
+
+    // Button loading state
+    const btn = $('generate-btn');
+    btn.disabled = true;
+    $('btn-label').textContent = 'Generating…';
+    $('spinner').style.display = 'block';
+    btn.querySelector('.btn-icon').style.display = 'none';
+
+    try {
+      const res = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n');
+        buf = parts.pop();
+        for (const line of parts) {
+          if (line.startsWith('data: ')) {
+            try { handleEvent(JSON.parse(line.slice(6))); } catch {}
+          }
+        }
+      }
+    } catch (err) {
+      log('ERROR', 'badge-error', err.message);
+      resetBtn();
+    }
+  });
+</script>
+</body>
+</html>

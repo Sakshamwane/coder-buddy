@@ -22,3 +22,6 @@ wheels/
 
 # System files
 .DS_Store
+
+# Generated project output (runtime artifact)
+generated_project/
