@@ -11,8 +11,8 @@ from agent.tools import write_file, read_file, get_current_directory, list_files
 
 _ = load_dotenv()
 
-set_debug(True)
-set_verbose(True)
+set_debug(False)
+set_verbose(False)
 
 llm = ChatGroq(model="llama-3.3-70b-versatile")
 
