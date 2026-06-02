@@ -49,7 +49,7 @@ def read_file(path: str) -> str:
 @tool
 def get_current_directory() -> str:
     """Returns the current working directory."""
-    return str(get_project_root())
+    return str(get_project_root().resolve())
 
 
 @tool
@@ -58,7 +58,7 @@ def list_files(directory: str = ".") -> str:
     p = safe_path_for_project(directory)
     if not p.is_dir():
         return f"ERROR: {p} is not a directory"
-    files = [str(f.relative_to(get_project_root())) for f in p.glob("**/*") if f.is_file()]
+    files = [str(f.relative_to(get_project_root().resolve())) for f in p.glob("**/*") if f.is_file()]
     return "\n".join(files) if files else "No files found."
 
 
