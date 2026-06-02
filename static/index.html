@@ -475,10 +475,6 @@
     switch (ev.type) {
       case 'start':
         sessionId = ev.session_id;
-        show('pipeline-card');
-        show('log-card');
-        setStage('stage-planner', 'active', 'Running…');
-        log('SYSTEM', 'badge-system', 'Generation started');
         break;
 
       case 'planner_done':
@@ -591,27 +587,28 @@
     btn.querySelector('.btn-icon').style.display = 'none';
 
     try {
+      // Start generation — get session_id immediately
       const res = await fetch('/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       });
+      const { session_id } = await res.json();
 
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '';
+      show('pipeline-card');
+      show('log-card');
+      setStage('stage-planner', 'active', 'Running…');
+      log('SYSTEM', 'badge-system', 'Generation started');
 
+      // Poll /events until done
+      let offset = 0;
       while (true) {
-        const { value, done } = await reader.read();
+        const r = await fetch(`/events/${session_id}?after=${offset}`);
+        const { events, done, total } = await r.json();
+        for (const ev of events) handleEvent(ev);
+        offset = total;
         if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const parts = buf.split('\n');
-        buf = parts.pop();
-        for (const line of parts) {
-          if (line.startsWith('data: ')) {
-            try { handleEvent(JSON.parse(line.slice(6))); } catch {}
-          }
-        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     } catch (err) {
       log('ERROR', 'badge-error', err.message);
