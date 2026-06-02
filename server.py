@@ -101,6 +101,11 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/version")
+async def version():
+    return {"version": "polling-v2", "build": "2026-06-03"}
+
+
 @app.post("/generate")
 async def generate(req: GenerateRequest):
     session_id = uuid.uuid4().hex[:8]
