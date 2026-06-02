@@ -1,0 +1,9 @@
+.venv
+.env
+.git
+__pycache__
+*.pyc
+*.pyo
+generated_project
+pre_generated_project_*
+*.docx
