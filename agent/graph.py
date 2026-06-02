@@ -14,7 +14,7 @@ _ = load_dotenv()
 set_debug(True)
 set_verbose(True)
 
-llm = ChatGroq(model="openai/gpt-oss-120b")
+llm = ChatGroq(model="llama-3.3-70b-versatile")
 
 
 def planner_agent(state: dict) -> dict:
